@@ -4,6 +4,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import axios from "axios";
+import ImageUpload from "@/components/ImageUpload";
 
 export default function EditResume() {
   const router = useRouter();
@@ -23,6 +24,8 @@ export default function EditResume() {
       phone: "",
       location: "",
       summary: "",
+      photo: "",
+      title: "",
     },
     skills: [""],
     experience: [
@@ -49,10 +52,11 @@ export default function EditResume() {
   useEffect(() => {
     const fetchResume = async () => {
       try {
-        const response = await axios.get(
-          `http://localhost:5000/api/resumes/${id}`,
-        );
+        // 🔴 PERBAIKAN: Gunakan relative URL (bukan localhost)
+        const response = await axios.get(`/api/resumes/${id}`);
         const resumeData = response.data;
+
+        console.log("Edit - Resume loaded:", resumeData);
 
         setFormData({
           personal: resumeData.personal || {
@@ -61,6 +65,8 @@ export default function EditResume() {
             phone: "",
             location: "",
             summary: "",
+            photo: "",
+            title: "",
           },
           skills: resumeData.skills?.length ? resumeData.skills : [""],
           experience: resumeData.experience?.length
@@ -87,6 +93,7 @@ export default function EditResume() {
               ],
         });
       } catch (err: any) {
+        console.error("Error loading resume:", err);
         setError(err.response?.data?.error || "Failed to load resume");
       } finally {
         setFetchLoading(false);
@@ -109,6 +116,16 @@ export default function EditResume() {
       personal: {
         ...formData.personal,
         [e.target.name]: e.target.value,
+      },
+    });
+  };
+
+  const handlePhotoUpload = (url: string) => {
+    setFormData({
+      ...formData,
+      personal: {
+        ...formData.personal,
+        photo: url,
       },
     });
   };
@@ -203,15 +220,18 @@ export default function EditResume() {
         (edu) => edu.institution.trim() !== "",
       );
 
-      await axios.put(`http://localhost:5000/api/resumes/${id}`, {
+      // 🔴 PERBAIKAN: Gunakan relative URL dengan method PUT
+      await axios.put(`/api/resumes/${id}`, {
         personal: formData.personal,
         skills: cleanSkills,
         experience: cleanExperience,
         education: cleanEducation,
       });
 
-      router.push(`/builder/${id}`); // Redirect ke halaman preview setelah update
+      // Redirect ke halaman preview setelah update
+      router.push(`/builder/${id}`);
     } catch (err: any) {
+      console.error("Error updating resume:", err);
       setError(err.response?.data?.error || "Failed to update resume");
     } finally {
       setLoading(false);
@@ -222,8 +242,8 @@ export default function EditResume() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading resume data...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-600 border-t-transparent mx-auto"></div>
+          <p className="mt-6 text-xl text-gray-600">Loading resume data...</p>
         </div>
       </div>
     );
@@ -283,6 +303,33 @@ export default function EditResume() {
                 <h2 className="text-2xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
                   Personal Information
                 </h2>
+
+                {/* Upload Foto */}
+                <div className="mb-8">
+                  <label className="block text-sm font-medium mb-4 text-white/80">
+                    Profile Photo
+                  </label>
+                  <ImageUpload
+                    onUploadComplete={handlePhotoUpload}
+                    currentImage={formData.personal.photo}
+                    name={formData.personal.fullName || "User"}
+                  />
+                </div>
+
+                {/* Job Title */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-2 text-white/80">
+                    Professional Title
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.personal.title}
+                    onChange={handlePersonalChange}
+                    className="w-full border border-white/20 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., Senior Frontend Developer"
+                  />
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
