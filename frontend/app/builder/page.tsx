@@ -283,41 +283,51 @@ export default function ResumeBuilder() {
       const cleanSkills = formData.skills.filter(
         (skill) => skill.trim() !== "",
       );
+
       const cleanExperience = formData.experience.filter(
         (exp) => exp.company.trim() !== "" && exp.position.trim() !== "",
       );
+
       const cleanEducation = formData.education.filter(
         (edu) => edu.institution.trim() !== "",
       );
 
-      console.log("Menyimpan resume:", {
-        personal: formData.personal,
-        skills: cleanSkills,
+      // 🔴 PASTIKAN TIDAK ADA UNDEFINED ATAU NULL
+      const dataToSend = {
+        personal: {
+          fullName: formData.personal.fullName || "",
+          email: formData.personal.email || "",
+          phone: formData.personal.phone || "",
+          location: formData.personal.location || "",
+          summary: formData.personal.summary || "",
+          photo: formData.personal.photo || "",
+          title: formData.personal.title || "",
+        },
+        skills: cleanSkills.length > 0 ? cleanSkills : [], // Kirim array kosong jika tidak ada
         experience: cleanExperience,
         education: cleanEducation,
-      });
+      };
 
-      // 🔴 SIMPAN KE API ENDPOINT (Vercel Serverless Functions)
-      const response = await axios.post("/api/resumes", {
-        personal: formData.personal,
-        skills: cleanSkills,
-        experience: cleanExperience,
-        education: cleanEducation,
-      });
+      console.log(
+        "📤 Data yang akan dikirim:",
+        JSON.stringify(dataToSend, null, 2),
+      );
 
-      console.log("Respon dari server:", response.data);
+      // Simpan ke API endpoint
+      const response = await axios.post("/api/resumes", dataToSend);
 
-      // Ambil ID dari response
+      console.log("✅ Respon dari server:", response.data);
+
       const resumeId = response.data.resume.id || response.data.resume._id;
 
       // Redirect ke halaman preview
       router.push(`/builder/${resumeId}`);
     } catch (err: any) {
-      console.error("Error saving resume:", err);
+      console.error("❌ Error saving resume:", err);
 
-      // Tampilkan pesan error yang lebih informatif
       if (err.response) {
         // Server merespon dengan error
+        console.error("Server error response:", err.response.data);
         setError(
           err.response.data?.error || `Server error: ${err.response.status}`,
         );
