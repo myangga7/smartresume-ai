@@ -1,56 +1,73 @@
 // frontend/app/api/resumes/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { MongoClient, ObjectId } from "mongodb";
+import { MongoClient } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
 
-if (!uri) {
-  throw new Error("Please define MONGODB_URI environment variable");
-}
-
-if (process.env.NODE_ENV === "development") {
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-  };
-
-  if (!globalWithMongo._mongoClientPromise) {
-    client = new MongoClient(uri);
-    globalWithMongo._mongoClientPromise = client.connect();
-  }
-  clientPromise = globalWithMongo._mongoClientPromise;
-} else {
-  client = new MongoClient(uri);
-  clientPromise = client.connect();
-}
-
-// GET - Ambil semua resumes
 export async function GET() {
   try {
-    const client = await clientPromise;
+    console.log("MONGODB_URI exists:", !!uri);
+
+    if (!uri) {
+      console.error("MONGODB_URI is not defined");
+      return NextResponse.json(
+        { error: "Database connection string not configured" },
+        { status: 500 },
+      );
+    }
+
+    // 🔴 TAMBAHKAN OPSI TLS UNTUK MENGATASI SSL ERROR
+    const client = new MongoClient(uri, {
+      tls: true,
+      tlsAllowInvalidCertificates: true, // Untuk development, nonaktifkan di production nanti
+      tlsAllowInvalidHostnames: true, // Untuk development
+      serverSelectionTimeoutMS: 30000, // Timeout 30 detik
+      connectTimeoutMS: 30000, // Timeout koneksi
+    });
+
+    console.log("Mencoba koneksi ke MongoDB...");
+    await client.connect();
+    console.log("✅ Connected to MongoDB");
+
     const db = client.db("smartresume");
     const collection = db.collection("resumes");
 
     const resumes = await collection.find({}).sort({ createdAt: -1 }).toArray();
 
+    await client.close();
+
     return NextResponse.json({
       count: resumes.length,
       resumes: resumes.map((r) => ({ ...r, id: r._id.toString() })),
     });
-  } catch (error) {
-    console.error("Database error:", error);
+  } catch (error: any) {
+    console.error("❌ Database error details:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    });
+
     return NextResponse.json(
-      { error: "Failed to fetch resumes" },
+      { error: error.message || "Failed to fetch resumes" },
       { status: 500 },
     );
   }
 }
 
-// POST - Buat resume baru
 export async function POST(request: NextRequest) {
   try {
+    console.log("MONGODB_URI exists:", !!uri);
+
+    if (!uri) {
+      console.error("MONGODB_URI is not defined");
+      return NextResponse.json(
+        { error: "Database connection string not configured" },
+        { status: 500 },
+      );
+    }
+
     const resumeData = await request.json();
+    console.log("Received resume data:", resumeData.personal?.email);
 
     // Validasi
     if (!resumeData.personal?.fullName || !resumeData.personal?.email) {
@@ -60,7 +77,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const client = await clientPromise;
+    // 🔴 TAMBAHKAN OPSI TLS JUGA DI SINI
+    const client = new MongoClient(uri, {
+      tls: true,
+      tlsAllowInvalidCertificates: true,
+      tlsAllowInvalidHostnames: true,
+      serverSelectionTimeoutMS: 30000,
+      connectTimeoutMS: 30000,
+    });
+
+    console.log("Mencoba koneksi ke MongoDB...");
+    await client.connect();
+    console.log("✅ Connected to MongoDB");
+
     const db = client.db("smartresume");
     const collection = db.collection("resumes");
 
@@ -68,6 +97,9 @@ export async function POST(request: NextRequest) {
     resumeData.createdAt = new Date().toISOString();
 
     const result = await collection.insertOne(resumeData);
+    console.log("Insert result:", result.insertedId);
+
+    await client.close();
 
     return NextResponse.json(
       {
@@ -79,10 +111,15 @@ export async function POST(request: NextRequest) {
       },
       { status: 201 },
     );
-  } catch (error) {
-    console.error("Database error:", error);
+  } catch (error: any) {
+    console.error("❌ Database error details:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    });
+
     return NextResponse.json(
-      { error: "Failed to create resume" },
+      { error: error.message || "Failed to create resume" },
       { status: 500 },
     );
   }
