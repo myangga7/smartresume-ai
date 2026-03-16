@@ -1,5 +1,5 @@
 // frontend/app/api/resumes/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { MongoClient, ObjectId } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -10,9 +10,7 @@ if (!uri) {
   throw new Error("Please define MONGODB_URI environment variable");
 }
 
-// Koneksi ke MongoDB
 if (process.env.NODE_ENV === "development") {
-  // Dalam development, gunakan global variable agar tidak membuat banyak koneksi
   let globalWithMongo = global as typeof globalThis & {
     _mongoClientPromise?: Promise<MongoClient>;
   };
@@ -23,7 +21,6 @@ if (process.env.NODE_ENV === "development") {
   }
   clientPromise = globalWithMongo._mongoClientPromise;
 } else {
-  // Dalam production, buat koneksi baru
   client = new MongoClient(uri);
   clientPromise = client.connect();
 }
@@ -51,7 +48,7 @@ export async function GET() {
 }
 
 // POST - Buat resume baru
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     const resumeData = await request.json();
 

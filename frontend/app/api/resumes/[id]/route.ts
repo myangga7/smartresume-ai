@@ -1,5 +1,5 @@
 // frontend/app/api/resumes/[id]/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { MongoClient, ObjectId } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
@@ -27,11 +27,11 @@ if (process.env.NODE_ENV === "development") {
 
 // GET - Ambil satu resume
 export async function GET(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
 
     const client = await clientPromise;
     const db = client.db("smartresume");
@@ -58,11 +58,11 @@ export async function GET(
 
 // PUT - Update resume
 export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
     const updateData = await request.json();
 
     const client = await clientPromise;
@@ -95,11 +95,11 @@ export async function PUT(
 
 // DELETE - Hapus resume
 export async function DELETE(
-  request: Request,
-  { params }: { params: { id: string } },
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const id = params.id;
+    const { id } = await params;
 
     const client = await clientPromise;
     const db = client.db("smartresume");
