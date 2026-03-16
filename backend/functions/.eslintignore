@@ -1,0 +1,4 @@
+node_modules/
+firebase-debug.log
+*.js.map
+*.mjs.d.ts
