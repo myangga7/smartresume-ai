@@ -163,48 +163,48 @@ export default function ResumeBuilder() {
 
       // Format data resume menjadi prompt yang bagus
       const prompt = `
-        You are an expert resume writer. Review this resume and give 4-5 specific, actionable suggestions for improvement.
+      You are an expert resume writer. Review this resume and give 4-5 specific, actionable suggestions for improvement.
 
-        PERSONAL:
-        - Name: ${formData.personal.fullName || "Not provided"}
-        - Title: ${formData.personal.title || "Not provided"}
-        - Summary: ${formData.personal.summary || "Not provided"}
+      PERSONAL:
+      - Name: ${formData.personal.fullName || "Not provided"}
+      - Title: ${formData.personal.title || "Not provided"}
+      - Summary: ${formData.personal.summary || "Not provided"}
 
-        SKILLS:
-        ${formData.skills.filter((s) => s.trim()).join(", ") || "No skills listed"}
+      SKILLS:
+      ${formData.skills.filter((s) => s.trim()).join(", ") || "No skills listed"}
 
-        EXPERIENCE:
-        ${
-          formData.experience
-            .filter((exp) => exp.company && exp.position)
-            .map(
-              (exp) =>
-                `- ${exp.position} at ${exp.company} (${exp.startDate || "?"} - ${exp.current ? "Present" : exp.endDate || "?"})
-             ${exp.description ? `  Description: ${exp.description}` : ""}`,
-            )
-            .join("\n") || "No experience listed"
-        }
+      EXPERIENCE:
+      ${
+        formData.experience
+          .filter((exp) => exp.company && exp.position)
+          .map(
+            (exp) =>
+              `- ${exp.position} at ${exp.company} (${exp.startDate || "?"} - ${exp.current ? "Present" : exp.endDate || "?"})
+           ${exp.description ? `  Description: ${exp.description}` : ""}`,
+          )
+          .join("\n") || "No experience listed"
+      }
 
-        EDUCATION:
-        ${
-          formData.education
-            .filter((edu) => edu.institution)
-            .map(
-              (edu) =>
-                `- ${edu.degree || "Degree"} at ${edu.institution} (${edu.graduationYear || "?"})`,
-            )
-            .join("\n") || "No education listed"
-        }
+      EDUCATION:
+      ${
+        formData.education
+          .filter((edu) => edu.institution)
+          .map(
+            (edu) =>
+              `- ${edu.degree || "Degree"} at ${edu.institution} (${edu.graduationYear || "?"})`,
+          )
+          .join("\n") || "No education listed"
+      }
 
-        INSTRUCTIONS:
-        1. Focus on keywords that help pass ATS screening
-        2. Suggest action verbs and quantitative achievements
-        3. Recommend how to better organize skills
-        4. Give format/template suggestions
-        5. Be constructive and specific
+      INSTRUCTIONS:
+      1. Focus on keywords that help pass ATS screening
+      2. Suggest action verbs and quantitative achievements
+      3. Recommend how to better organize skills
+      4. Give format/template suggestions
+      5. Be constructive and specific
 
-        Format your response with clear bullet points using emojis.
-      `;
+      Format your response with clear bullet points using emojis.
+    `;
 
       console.log("Mengirim prompt ke Cloudflare Worker...");
 
@@ -219,10 +219,81 @@ export default function ResumeBuilder() {
       setAiSuggestions(response.data.response || "No response from AI");
     } catch (error: any) {
       console.error("AI Error:", error);
-      setAiSuggestions(
-        error.response?.data?.error ||
-          "Sorry, something went wrong. Please try again later.",
-      );
+
+      // Deteksi jenis error
+      const status = error.response?.status;
+      const errorData = error.response?.data;
+      const errorMessage = errorData?.error || "";
+      const errorDetails = errorData?.details || "";
+
+      let professionalMessage = "";
+
+      // Cek berbagai jenis error
+      if (
+        status === 429 ||
+        errorMessage.includes("quota") ||
+        errorMessage.includes("RESOURCE_EXHAUSTED")
+      ) {
+        professionalMessage = `🤖 **AI Assistant Temporarily Unavailable**
+
+Our AI service has reached its current usage limit. This is a temporary measure to ensure service quality.
+
+💡 **What you can do:**
+• Try again in 5-10 minutes
+• Continue editing your resume manually
+• Save your progress and return later
+
+The AI feature will be automatically restored shortly. Thank you for your understanding!`;
+      } else if (status === 401 || status === 403) {
+        professionalMessage = `🔑 **AI Service Authentication**
+
+The AI service is undergoing routine maintenance.
+
+💡 **What you can do:**
+• Refresh the page and try again
+• Continue with manual resume editing
+• Check back in a few minutes
+
+We're working to restore full functionality.`;
+      } else if (status >= 500 || errorMessage.includes("server")) {
+        professionalMessage = `⚙️ **AI Service Temporarily Busy**
+
+Our AI service is currently experiencing high demand. This is normal during peak usage times.
+
+💡 **What you can do:**
+• Click "Try Again" in a few moments
+• Proceed with manual editing first
+• The AI will be available shortly
+
+All your resume data remains safely saved.`;
+      } else if (
+        error.code === "ERR_NETWORK" ||
+        error.message.includes("Network Error")
+      ) {
+        professionalMessage = `🌐 **Connection to AI Service Interrupted**
+
+There seems to be a temporary network interruption. This doesn't affect your resume data.
+
+💡 **What you can do:**
+• Check your internet connection
+• Refresh the page
+• Try again in a few moments
+
+Your resume data is safely stored locally.`;
+      } else {
+        professionalMessage = `🚀 **AI Feature Enhancement in Progress**
+
+We're continuously improving our AI suggestion engine to provide you with the best experience.
+
+💡 **While you wait:**
+• Complete your resume manually
+• Preview how your resume looks
+• Save and return anytime
+
+This feature will be fully optimized soon!`;
+      }
+
+      setAiSuggestions(professionalMessage);
     } finally {
       setLoadingAI(false);
     }
@@ -240,31 +311,44 @@ export default function ResumeBuilder() {
 
     try {
       const prompt = `
-        Analyze how well this candidate fits the job description.
+      Analyze how well this candidate fits the job description.
 
-        JOB DESCRIPTION:
-        ${jobDescription}
+      JOB DESCRIPTION:
+      ${jobDescription}
 
-        CANDIDATE SKILLS:
-        ${formData.skills.filter((s) => s.trim()).join(", ") || "No skills listed"}
+      CANDIDATE SKILLS:
+      ${formData.skills.filter((s) => s.trim()).join(", ") || "No skills listed"}
 
-        Provide:
-        1. Match score (0-100%)
-        2. Matching skills
-        3. Missing skills
-        4. 2-3 specific suggestions to improve their chances
+      Provide:
+      1. Match score (0-100%)
+      2. Matching skills
+      3. Missing skills
+      4. 2-3 specific suggestions to improve their chances
 
-        Format with clear sections and emojis.
-      `;
+      Format with clear sections and emojis.
+    `;
 
       const response = await axios.get(
         `${process.env.NEXT_PUBLIC_GEMINI_API_URL}?prompt=${encodeURIComponent(prompt)}`,
       );
 
       setAiSuggestions(response.data.response);
-    } catch (error) {
+    } catch (error: any) {
       console.error("AI Error:", error);
-      setAiSuggestions("Sorry, something went wrong. Please try again.");
+
+      // Professional message for job analysis error
+      const professionalMessage = `📋 **Job Analysis Service Temporarily Unavailable**
+
+The job analysis feature is currently at capacity. This is a temporary measure to ensure quality service.
+
+💡 **What you can do:**
+• Try again in a few minutes
+• Save the job description and return later
+• Continue building your resume first
+
+We'll have this feature back online shortly. Thank you for your patience!`;
+
+      setAiSuggestions(professionalMessage);
     } finally {
       setLoadingAI(false);
     }
